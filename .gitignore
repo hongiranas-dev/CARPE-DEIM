@@ -1,0 +1,8 @@
+.env
+.chroma/
+data/demo_actions/
+.venv/
+venv/
+__pycache__/
+.pytest_cache/
+*.py[cod]

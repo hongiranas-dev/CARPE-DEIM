@@ -1,0 +1,56 @@
+[
+  {
+    "id": "startupindia-dpiit-en",
+    "title": "Startup Recognition & Tax Exemption — DPIIT recognition",
+    "publisher": "Startup India, DPIIT, Ministry of Commerce and Industry",
+    "source_url": "https://www.startupindia.gov.in/content/sih/en/startupgov/startup_recognition_page.html",
+    "language": "en",
+    "passage_type": "official_page_excerpt",
+    "text": "Eligibility Criteria for Startup Recognition: The startup should be incorporated as a Private Limited Company or registered as a Partnership Firm, Limited Liability Partnership, or Cooperative Society. Turnover should be less than INR 200 Crores (INR 300 Crores for DeepTech startups) in any of the previous financial years. An entity shall be considered a startup for up to 10 years (20 years for DeepTech startups) from the date of its incorporation. The startup should be working towards innovation or improvement of existing products, services, and processes, and should have the potential to generate employment or create wealth. An entity formed by splitting up or reconstruction of an existing business shall not be considered a Startup. To apply, create an account on NSWS and add the form Registration as a Startup. The Ministry does not charge a fee for DPIIT recognition."
+  },
+  {
+    "id": "startupindia-dpiit-hi",
+    "title": "Startup Recognition & Tax Exemption — DPIIT recognition",
+    "publisher": "Startup India, DPIIT, Ministry of Commerce and Industry",
+    "source_url": "https://www.startupindia.gov.in/content/sih/en/startupgov/startup_recognition_page.html",
+    "language": "hi",
+    "passage_type": "curated_translation",
+    "text": "Startup India ke DPIIT recognition page ke mutabik, eligible entity Private Limited Company, registered Partnership Firm, Limited Liability Partnership, ya Cooperative Society honi chahiye. Startup ko products, services, ya processes mein innovation ya improvement par kaam karna chahiye aur employment ya wealth create karne ki potential honi chahiye. Existing business ko split ya reconstruct karke bani entity ko Startup nahi maana jaata. Page par incorporation se 10 saal (DeepTech ke liye 20 saal) aur turnover INR 200 crore (DeepTech ke liye INR 300 crore) se kam bataya gaya hai. Apply karne ke liye NSWS par account bana kar Registration as a Startup form add karein. DPIIT recognition ke liye Ministry fee nahi leti."
+  },
+  {
+    "id": "cbic-gst-registration-en",
+    "title": "GST Registration FAQ — threshold and registration cases",
+    "publisher": "Central Board of Indirect Taxes and Customs (CBIC), Government of India",
+    "source_url": "https://cbic-gst.gov.in/sectoral-faq.html",
+    "language": "en",
+    "passage_type": "official_page_excerpt",
+    "text": "Question: What is the threshold for registration in GST? Answer: A person having business which has aggregate turnover of more than Rs. 20 lakhs calculated for a given PAN across the country would need to register under GST. There are some exceptions to this rule as mentioned in section 24 of the CGST Act, 2017. Aggregate turnover is defined in section 2(6) of the said Act."
+  },
+  {
+    "id": "cbic-gst-registration-hi",
+    "title": "GST Registration FAQ — threshold and registration cases",
+    "publisher": "Central Board of Indirect Taxes and Customs (CBIC), Government of India",
+    "source_url": "https://cbic-gst.gov.in/sectoral-faq.html",
+    "language": "hi",
+    "passage_type": "curated_translation",
+    "text": "CBIC ke GST registration FAQ ke mutabik, ek PAN ke liye poore desh mein aggregate turnover Rs. 20 lakh se zyada hone par GST registration chahiye. CGST Act, 2017 ke section 24 mein is rule ke kuch exceptions hain. Aggregate turnover ko us Act ke section 2(6) mein define kiya gaya hai. Apne business par niyam lagu karne se pehle apni supply aur state ke hisaab se current CBIC guidance check karein."
+  },
+  {
+    "id": "mca-spiceplus-en",
+    "title": "FAQs on Incorporation and Allied Matters — SPICe+ and linked filings",
+    "publisher": "Ministry of Corporate Affairs, Government of India",
+    "source_url": "https://www.mca.gov.in/content/dam/mca/pdf/SPICEplus-and-linked-filings-FAQs-V3-20230122.pdf",
+    "language": "en",
+    "passage_type": "official_page_excerpt",
+    "text": "The MCA SPICe+ and linked-filings FAQ lists documents for incorporation including the Memorandum of Association, Articles of Association, declaration by first directors and subscribers, proof of office address, copy of utility bills, NOC for use of premises from the owner and the person named on the utility bill, and proof of identity and residential address of subscribers. Required documents vary by filing and company type; consult current MCA V3 guidance."
+  },
+  {
+    "id": "mca-spiceplus-hi",
+    "title": "FAQs on Incorporation and Allied Matters — SPICe+ and linked filings",
+    "publisher": "Ministry of Corporate Affairs, Government of India",
+    "source_url": "https://www.mca.gov.in/content/dam/mca/pdf/SPICEplus-and-linked-filings-FAQs-V3-20230122.pdf",
+    "language": "hi",
+    "passage_type": "curated_translation",
+    "text": "MCA ke SPICe+ aur linked-filings FAQ mein incorporation documents mein Memorandum of Association, Articles of Association, directors aur subscribers ki declaration, office address proof, utility bill, jagah ke malik ka NOC (jahaan laagu ho), aur subscribers ke identity aur address proof diye gaye hain. Company type aur filing ke hisaab se documents badal sakte hain; filing se pehle current MCA V3 guidance verify karein."
+  }
+]
