@@ -1,54 +1,94 @@
-# FounderOS · Carpe deim
+<div align="center">
 
-Local-first multilingual startup copilot MVP for Indian founders. Accessibility in mind.
+# ✳️ FounderOS · Carpe Deim
 
-## Current MVP checklist
+**A multilingual, source-grounded startup copilot for Indian founders.**
+Ask in Hindi, Tamil or English → get cited answers → research your market → match investors → draft pitches → execute with founder approval.
 
-- [x] Phase 1: initial Streamlit interface starts locally
-- [x] Phase 2: official-source retrieval with ChromaDB and source metadata
-- [x] Phase 2: Sarvam V1 client and missing-key handling
-- [x] Phase 2: retrieval and metadata tests
-- [ ] Sarvam answer generation: live calls are paused until hackathon credits are available
-- [x] Local market research, evidence-based investor matching, and personalized pitch drafts
-- [x] Local-only FastMCP execution tools with founder approval
+[🚀 Live Demo](https://carpe-deim-lpujuwux2gothufm4lmhdh.streamlit.app/) ·
 
-## Run locally
+</div>
 
-```powershell
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-.\.venv\Scripts\python.exe -m streamlit run app.py
+---
+
+## 💡 The Problem
+Millions of Tier-2/3 founders think in their own language, but startup guidance (DPIIT, GST, MCA, investors) is English-only, scattered, and full of jargon. Generic chatbots hallucinate on compliance, and that costs founders real money.
+
+## ✅ The Solution
+FounderOS answers **only from retrieved official sources**, shows the citations, and refuses when evidence is insufficient. Nothing is fabricated, and nothing executes without founder approval.
+
+## ✨ Features
+
+| | Feature | What it does |
+|---|---|---|
+| 🧭 | **Startup Advisor** | RAG (ChromaDB) over official Startup India/DPIIT, CBIC & MCA sources, with Hindi/Hinglish retrieval support. Every answer shows its source passages and links. |
+| 🎙️ | **Voice in / Voice out** | Sarvam STT transcribes Hindi / Tamil / English speech (editable before asking). Sarvam TTS reads answers back. |
+| 📊 | **Market Research** | One founder profile produces a source-grounded brief: problem, customers, competitors, risks and assumptions. **No fabricated TAM.** |
+| 🤝 | **Investor Matching** | Transparent scoring from published criteria only: sector 40%, stage 25%, cheque 20%, geography 15%. Each match links to its evidence. |
+| ✉️ | **Pitch Drafts** | Personalized, editable email drafts per investor. Traction is included only if the founder provides it. |
+| ⚙️ | **MCP Execution Layer** | A FastMCP server exposes `create_gmail_draft`, `append_to_sheet`, `create_calendar_followup`, each gated by explicit founder approval. |
+| ⏱️ | **Agent Activity Log** | Shows only actions that actually happened. |
+
+## 🏗️ Architecture
+
+```
+ Founder (Voice / Text: हिंदी · தமிழ் · English)
+        │
+        ▼
+ Streamlit UI ──► Sarvam STT ──► editable transcript
+        │
+        ▼
+ RAG Retriever (ChromaDB + source metadata)
+        │  insufficient evidence? → refuse honestly
+        ▼
+ Sarvam LLM (answer from retrieved passages) ──► Sarvam TTS
+        │
+        ├──► Market Research ──► Investor Matching ──► Pitch Drafts
+        │
+        ▼
+ MCP Client ──► FastMCP Server (founder-approved actions)
+                 ├─ create_gmail_draft
+                 ├─ append_to_sheet
+                 └─ create_calendar_followup
 ```
 
-The interface and local retrieval launch without AI credentials. For generated answers, copy `.env.example` to `.env`, add your Sarvam API key, then restart the app. Never commit `.env`.
+## 🧱 Tech Stack
+Python · Streamlit · ChromaDB · Sarvam AI (STT, LLM, TTS) · MCP / FastMCP
 
-The advisor retrieves official-source passages from Startup India/DPIIT, CBIC, and MCA before answering. Its small bundled corpus includes Hindi/Hinglish retrieval translations; citations link to the original official pages. Local Chroma data is stored in `.chroma/` and is ignored by Git.
+## 🛡️ Design Principles
+- **Grounded, not guessed:** answers cite official sources, and the system refuses on weak evidence.
+- **Human-in-the-loop:** MCP tools run only with explicit `approved=True`.
+- **Honest by design:** unknown investor criteria are left unscored, currencies are never converted, and no email is ever sent.
 
-The Market Research tab builds a deterministic brief from founder inputs and available retrieved official material. Since this corpus is primarily about compliance, it does not claim market sizing or competitor research that it cannot support. Investor matching reads `data/investors.csv`, which contains sourced profiles labeled `VERIFIED SAMPLE`; undisclosed criteria remain unscored. Cheque currencies are not converted. Pitch Drafts are editable local templates; no email is sent.
+## 🔍 Built vs. Simulated
 
-Run tests (no Sarvam API calls are made):
+| ✅ Built & working | 🎭 Demo-scoped (by design) |
+|---|---|
+| RAG over official sources with citations | Small curated corpus & verified-sample investor set |
+| Sarvam STT/TTS/LLM integration | MCP tools write to **local files**, not live Gmail/Sheets/Calendar |
+| Market brief, investor scoring, pitch drafts | Drafts only; no emails sent |
+| FastMCP server + client with approval gate | Google OAuth is on the roadmap |
 
-```powershell
-.\.venv\Scripts\python.exe -m unittest discover -s tests -v
+## 🚀 Run Locally
+
+```bash
+git clone https://github.com/hongiranas-dev/CARPE-DEIM.git
+cd CARPE-DEIM
+pip install -r requirements.txt
+cp .env.example .env        # add SARVAM_API_KEY
+streamlit run app.py
 ```
 
-## MCP local/demo tools
-
-Install the dependencies from `requirements.txt`, then start the stdio MCP server with:
-
-```powershell
-.\.venv\Scripts\python.exe mcp_server.py
+**MCP demo:**
+```bash
+python mcp_client_demo.py --approve
 ```
+Outputs land in `data/demo_actions/`. **Tests:** `python -m unittest discover -s tests -v`
 
-The server waits for an MCP client over standard input/output. For a complete client/server demo using an investor selected by the existing ranking code and a pitch created by the existing draft generator, run:
+## 🗺️ Roadmap
+- Real Gmail / Google Sheets / Calendar via OAuth
+- Larger corpus (funding, market reports) and live investor data
+- WhatsApp bot + more Indian languages
 
-```powershell
-.\.venv\Scripts\python.exe mcp_client_demo.py --approve
-```
-
-`--approve` is the founder's explicit approval to write the three local demo artifacts. Without it, the client refuses to execute. The tools save drafts to `data/demo_actions/email_drafts.jsonl`, investor rows to `data/demo_actions/investor_sheet.csv`, and reminders to `data/demo_actions/followups.jsonl`. These are local demo files only: they do not connect to Gmail, Google Sheets, or Google Calendar, and no email is sent. Demo action files are git-ignored. Real Google services would require configuring Google OAuth credentials and authorization; that setup is not needed for this MVP.
-
-Run the retrieval tests with:
-
-```powershell
-.\.venv\Scripts\python.exe -m unittest discover -s tests -v
-```
+---
+<div align="center">Built for founders who think in their own language. <b>Carpe deim.</b></div>
