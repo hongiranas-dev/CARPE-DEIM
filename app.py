@@ -1,17 +1,115 @@
 """FounderOS: local-first startup copilot MVP."""
 
 import os
+import mimetypes
 from pathlib import Path
 
 import streamlit as st
 from dotenv import load_dotenv
 
 from rag import has_sufficient_evidence, retrieve
+from market_research import generate_market_summary
 from sarvam_client import SarvamConfigurationError, SarvamRequestError, generate_answer
+from sarvam_voice import SarvamVoiceError, synthesize_speech, transcribe_audio
 from startup_workflow import prepare_startup_workflow
 
 
 load_dotenv(Path(__file__).resolve().parent / ".env")
+
+
+@st.cache_data(show_spinner=False, ttl=3600)
+def cached_generation(user_question: str, evidence: list[dict]) -> str:
+    return generate_answer(user_question, evidence)
+
+
+@st.cache_data(show_spinner=False, ttl=3600)
+def cached_synthesis(answer: str, language_code: str) -> tuple[bytes, dict]:
+    return synthesize_speech(answer, language_code)
+
+
+@st.cache_data(show_spinner=False, ttl=3600)
+def cached_market_summary(startup: dict, report: dict) -> dict:
+    return generate_market_summary(startup, report)
+
+
+def get_advisor_result(user_question: str) -> dict:
+    """Shared RAG and answer path for typed and transcribed questions."""
+    try:
+        passages = retrieve(user_question)
+    except Exception as exc:
+        return {"question": user_question, "status": "retrieval_error", "error": str(exc), "passages": []}
+    if not has_sufficient_evidence(passages):
+        return {"question": user_question, "status": "insufficient_evidence", "passages": passages, "answer": None}
+    api_key = os.getenv("SARVAM_API_KEY", "").strip()
+    if not api_key or api_key == "your_sarvam_api_key_here":
+        return {"question": user_question, "status": "sarvam_not_configured", "passages": passages, "answer": None}
+    try:
+        answer = cached_generation(user_question, passages)
+        return {"question": user_question, "status": "generated", "passages": passages, "answer": answer}
+    except SarvamConfigurationError as exc:
+        return {"question": user_question, "status": "sarvam_not_configured", "passages": passages, "answer": None, "error": str(exc)}
+    except SarvamRequestError as exc:
+        return {"question": user_question, "status": "generation_error", "passages": passages, "answer": None, "error": str(exc)}
+
+
+def _audio_content_type(uploaded_file) -> str:
+    content_type = getattr(uploaded_file, "type", None)
+    if content_type and content_type != "application/octet-stream":
+        return content_type
+    extension_types = {
+        ".wav": "audio/wav", ".mp3": "audio/mpeg", ".aac": "audio/aac", ".aiff": "audio/aiff",
+        ".ogg": "audio/ogg", ".opus": "audio/opus", ".flac": "audio/flac", ".mp4": "audio/mp4",
+        ".m4a": "audio/mp4", ".amr": "audio/amr", ".webm": "audio/webm",
+    }
+    suffix = Path(getattr(uploaded_file, "name", "")).suffix.lower()
+    return extension_types.get(suffix) or mimetypes.guess_type(getattr(uploaded_file, "name", ""))[0] or ""
+
+
+def render_advisor_result(result: dict) -> None:
+    """Render evidence links and answer consistently for typed and spoken questions."""
+    if result["status"] == "retrieval_error":
+        st.error(f"Document retrieval failed: {result['error']}")
+        return
+    if result["status"] == "insufficient_evidence":
+        st.warning("I couldn’t find enough relevant evidence in the current source collection to answer reliably.")
+        return
+
+    passages = result["passages"]
+    st.caption(f"Question: {result['question']}")
+    st.markdown("#### Retrieved guidance")
+    for index, passage in enumerate(passages, start=1):
+        with st.expander(f"[{index}] {passage['title']} · {passage['publisher']}", expanded=index == 1):
+            st.caption(f"{passage['passage_type'].replace('_', ' ').title()} · {passage['language'].upper()}")
+            st.write(passage["text"])
+            st.markdown(f"[Open source document]({passage['source_url']})")
+
+    if result["status"] == "sarvam_not_configured":
+        st.info("Retrieved source passages are ready. Add SARVAM_API_KEY to your project .env file to generate an answer.")
+        return
+    if result["status"] == "generation_error":
+        st.error(result["error"])
+        return
+
+    answer = result["answer"]
+    st.markdown("#### Advisor response")
+    st.markdown(answer)
+    language_code = st.session_state.get("voice_language_code", "hi-IN")
+    if st.button("🔊 Speak this answer", key="speak_advisor_answer"):
+        try:
+            audio_bytes, metadata = cached_synthesis(answer, language_code)
+            st.session_state["advisor_speech"] = {
+                "answer": answer,
+                "language_code": language_code,
+                "audio": audio_bytes,
+                "metadata": metadata,
+            }
+            st.session_state.setdefault("activity_events", []).append("Generated spoken advisor answer with Sarvam TTS.")
+        except (ValueError, SarvamVoiceError) as exc:
+            st.error(f"Could not generate spoken answer: {exc}")
+
+    speech = st.session_state.get("advisor_speech")
+    if speech and speech["answer"] == answer and speech["language_code"] == language_code:
+        st.audio(speech["audio"], format=speech["metadata"]["mime_type"])
 
 
 st.set_page_config(page_title="FounderOS | Carpe deim", page_icon="✳️", layout="wide")
@@ -57,13 +155,14 @@ advisor, market, investors, pitches, activity = st.tabs(
 
 with advisor:
     st.subheader("Ask your startup question")
-    st.caption("English · हिंदी · Hinglish")
+    st.caption("Type or speak in English, हिंदी, or தமிழ். Retrieved official sources are shown with each answer.")
     with st.form("advisor_form"):
         question = st.text_area(
             "Question",
             placeholder="E.g. What are the steps to get DPIIT recognition for my startup?",
             label_visibility="collapsed",
             height=115,
+            key="advisor_text_question",
         )
         submitted = st.form_submit_button("Get guidance →", type="primary")
 
@@ -72,42 +171,67 @@ with advisor:
             st.warning("Enter a question to get started.")
         else:
             with st.spinner("Searching official startup guidance…"):
-                try:
-                    passages = retrieve(question)
-                except Exception as exc:
-                    st.error(f"Document retrieval failed: {exc}")
-                    passages = []
-            if not has_sufficient_evidence(passages):
-                st.warning("I couldn’t find enough relevant evidence in the current source collection to answer reliably.")
+                st.session_state["advisor_result"] = get_advisor_result(question.strip())
+
+    st.markdown("#### Ask by voice")
+    language_options = {"Hindi · हिंदी": "hi-IN", "English": "en-IN", "Tamil · தமிழ்": "ta-IN"}
+    selected_language = st.selectbox("Voice language", list(language_options), key="voice_language")
+    voice_language_code = language_options[selected_language]
+    st.session_state["voice_language_code"] = voice_language_code
+
+    record_audio = getattr(st, "audio_input", None)
+    if record_audio is not None:
+        recorded_file = record_audio("Record a question", key="advisor_audio_recording")
+    else:
+        recorded_file = None
+        st.caption("Microphone recording is unavailable in this Streamlit version; upload an audio clip instead.")
+    uploaded_file = st.file_uploader(
+        "Or upload an audio clip",
+        type=["wav", "mp3", "aac", "aiff", "ogg", "opus", "flac", "mp4", "m4a", "amr", "webm"],
+        key="advisor_audio_upload",
+    )
+    audio_file = recorded_file if recorded_file is not None else uploaded_file
+    if st.button("Transcribe audio →", key="transcribe_advisor_audio"):
+        if audio_file is None:
+            st.warning("Record or upload an audio clip before transcribing.")
+        else:
+            try:
+                transcript = transcribe_audio(
+                    audio_file.getvalue(),
+                    getattr(audio_file, "name", None) or "recording.wav",
+                    _audio_content_type(audio_file),
+                    language_code=voice_language_code,
+                )
+                st.session_state["voice_transcript"] = transcript
+                st.session_state.setdefault("activity_events", []).append("Transcribed founder audio with Sarvam STT.")
+            except (ValueError, SarvamVoiceError) as exc:
+                st.error(f"Audio transcription failed: {exc}")
+
+    if "voice_transcript" in st.session_state:
+        with st.form("transcribed_question_form"):
+            edited_transcript = st.text_area(
+                "Review and edit the transcription before asking",
+                key="voice_transcript",
+                height=110,
+            )
+            voice_submitted = st.form_submit_button("Get guidance from transcript →", type="primary")
+        if voice_submitted:
+            if not edited_transcript.strip():
+                st.warning("Enter or correct the transcription before requesting guidance.")
             else:
-                st.markdown("#### Retrieved guidance")
-                for index, passage in enumerate(passages, start=1):
-                    with st.expander(f"[{index}] {passage['title']} · {passage['publisher']}", expanded=index == 1):
-                        st.caption(f"{passage['passage_type'].replace('_', ' ').title()} · {passage['language'].upper()}")
-                        st.write(passage["text"])
-                        st.markdown(f"[Open source document]({passage['source_url']})")
+                with st.spinner("Searching official startup guidance…"):
+                    st.session_state["advisor_result"] = get_advisor_result(edited_transcript.strip())
 
-                if not os.getenv("SARVAM_API_KEY", "").strip() or os.getenv("SARVAM_API_KEY", "").strip() == "your_sarvam_api_key_here":
-                    st.info("Retrieved source passages are ready. Add SARVAM_API_KEY to your project .env file to generate an answer.")
-                else:
-                    @st.cache_data(show_spinner=False, ttl=3600)
-                    def cached_generation(user_question: str, evidence: list[dict]) -> str:
-                        return generate_answer(user_question, evidence)
-
-                    try:
-                        answer = cached_generation(question.strip(), passages)
-                        st.markdown("#### Advisor response")
-                        st.markdown(answer)
-                    except SarvamConfigurationError as exc:
-                        st.info(str(exc))
-                    except SarvamRequestError as exc:
-                        st.error(str(exc))
+    result = st.session_state.get("advisor_result")
+    if result:
+        st.divider()
+        render_advisor_result(result)
 
     st.caption("Answers are grounded in the retrieved official-source passages shown below them.")
 
 with market:
     st.subheader("Understand your market")
-    st.caption("One profile prepares a source-grounded brief, investor matches, and editable email drafts. No live LLM calls are used.")
+    st.caption("One profile prepares a source-grounded brief, an optional cached Sarvam narrative, investor matches, and editable email drafts.")
     with st.form("startup_workflow_form"):
         col1, col2 = st.columns(2)
         startup_name = col1.text_input("Startup name", placeholder="Your company or working name")
@@ -149,6 +273,7 @@ with market:
             }
             with st.spinner("Retrieving local sources and preparing the brief…"):
                 workflow = prepare_startup_workflow(profile)
+                workflow["market_summary"] = cached_market_summary(profile, workflow["report"])
             st.session_state["workflow_results"] = workflow
             st.session_state.setdefault("activity_events", []).append("Prepared source-grounded research, ranked published investor profiles, and generated local draft emails.")
             st.success("Workflow prepared. Open the Investor Matching and Pitch Drafts tabs to review the results.")
@@ -158,6 +283,12 @@ with market:
         report = results["report"]
         st.markdown("#### Market research brief")
         st.caption("Founder inputs are hypotheses. Market claims below are limited to retrieved sources; no TAM is fabricated.")
+        summary = results.get("market_summary", {})
+        if summary.get("status") == "generated":
+            st.markdown("#### Sarvam research summary")
+            st.markdown(summary["text"])
+        elif summary.get("message"):
+            st.info(summary["message"])
         st.markdown("**Problem statement**")
         st.write(report["problem_statement"])
         st.caption(report["problem_label"])
