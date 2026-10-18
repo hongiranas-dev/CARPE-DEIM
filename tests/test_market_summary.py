@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import market_research
 from market_research import generate_market_summary
-from sarvam_client import SarvamRequestError
+from sarvam_client import SarvamConfigurationError, SarvamRequestError
 
 
 class MarketSummaryTests(unittest.TestCase):
@@ -48,19 +48,28 @@ class MarketSummaryTests(unittest.TestCase):
         self.assertNotIn("invented.example", result["text"])
         self.assertNotIn("[99]", result["text"])
         self.assertIn(self.passage["source_url"], result["text"])
+        self.assertIn("AI-generated preliminary analysis", result["text"])
         question, evidence = generate.call_args.args
-        self.assertIn("Founder-provided assumptions (unverified)", question)
-        self.assertIn("Do not invent TAM, SAM, SOM", question)
+        self.assertIn("Founder-provided startup profile (unverified assumptions)", question)
+        self.assertIn("Never invent market size, TAM/SAM/SOM values", question)
+        self.assertIn("Competitor landscape and search plan", question)
+        self.assertIn("bottom-up method", question)
+        self.assertIn("Practical validation steps", question)
+        self.assertIn("Small farmers in Maharashtra", question)
         self.assertEqual(evidence[0]["title"], self.passage["title"])
         self.assertEqual(evidence[0]["source_url"], self.passage["source_url"])
 
-    def test_insufficient_evidence_skips_generation(self):
+    def test_insufficient_evidence_uses_profile_for_hypotheses_but_labels_them(self):
         report = {**self.report, "verified_context": []}
-        with patch("market_research.generate_answer") as generate:
+        with patch("market_research.generate_answer", return_value="Competitor categories and search plan.") as generate:
             result = generate_market_summary(self.profile, report)
-        self.assertEqual(result["status"], "insufficient_evidence")
-        self.assertIn("not generated", result["message"])
-        generate.assert_not_called()
+        self.assertEqual(result["status"], "generated")
+        self.assertIn("No relevant verified source passages were retrieved", result["text"])
+        self.assertIn("hypotheses, not validated facts", result["text"])
+        self.assertIn("No verified source passages retrieved", result["text"])
+        self.assertEqual(generate.call_args.args[1], [])
+        self.assertIn("generic competitor categories", generate.call_args.args[0])
+        self.assertIn("no relevant passages", generate.call_args.args[0])
 
     def test_generation_failure_keeps_deterministic_report_available(self):
         original_report = copy.deepcopy(self.report)
@@ -69,6 +78,13 @@ class MarketSummaryTests(unittest.TestCase):
         self.assertEqual(result["status"], "failed")
         self.assertIn("deterministic brief below is unchanged", result["message"])
         self.assertEqual(self.report, original_report)
+
+    def test_missing_sarvam_configuration_keeps_deterministic_fallback(self):
+        with patch("market_research.generate_answer", side_effect=SarvamConfigurationError("Sarvam API key is missing.")):
+            result = generate_market_summary(self.profile, self.report)
+        self.assertEqual(result["status"], "unavailable")
+        self.assertIn("API key is missing", result["message"])
+        self.assertIn("deterministic brief below is unchanged", result["message"])
 
     def test_summary_does_not_change_existing_deterministic_calculations(self):
         original_report = copy.deepcopy(self.report)

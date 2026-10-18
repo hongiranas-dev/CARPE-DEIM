@@ -46,20 +46,20 @@ def build_market_report(startup: dict) -> dict:
 
 
 def generate_market_summary(startup: dict, report: dict) -> dict:
-    """Create an optional source-grounded narrative without changing the deterministic report."""
+    """Create a profile-based preliminary analysis without changing the deterministic report."""
     passages = report.get("verified_context", [])
-    if not has_sufficient_evidence(passages):
-        return {
-            "status": "insufficient_evidence",
-            "text": None,
-            "message": "A Sarvam summary was not generated: the retrieved passages do not provide enough relevant evidence. The deterministic brief below remains available.",
-        }
-
     founder_assumptions = {
+        "startup_name": startup.get("startup_name", ""),
+        "sector": startup.get("sector", ""),
+        "stage": startup.get("stage", ""),
+        "geography": startup.get("geography", ""),
         "problem_description": startup.get("description", ""),
         "target_customers": startup.get("target_customers", ""),
         "competitors_listed_by_founder": startup.get("competitors", ""),
         "proposed_business_model": startup.get("business_model", ""),
+        "funding_ask": startup.get("funding_amount"),
+        "funding_currency": startup.get("funding_currency", ""),
+        "traction_listed_by_founder": startup.get("traction", ""),
     }
     brief = {
         "problem_statement": report.get("problem_statement"),
@@ -71,13 +71,23 @@ def generate_market_summary(startup: dict, report: dict) -> dict:
         "research_scope_note": report.get("corpus_note", ""),
     }
     question = (
-        "Write a concise, readable market-research summary for this startup. Treat the supplied source passages as the only verified facts. "
-        "Keep founder-provided assumptions clearly separate and label them unvalidated. Include a section for evidence gaps. "
-        "Do not invent TAM, SAM, SOM, revenue, growth rates, competitor facts/statistics, or citations. "
-        "If the evidence does not support a market claim, say that it is unknown. Cite source passages only with their numbered [n] references; "
-        "the references include the actual source title and URL.\n\n"
-        f"Founder-provided assumptions (unverified): {json.dumps(founder_assumptions, ensure_ascii=False)}\n\n"
-        f"Existing deterministic brief (preserve its caveats): {json.dumps(brief, ensure_ascii=False)}"
+        "Prepare an actionable preliminary market analysis using the startup profile and supplied research brief. "
+        "The profile is founder-provided and unverified; do not describe it as an established fact. "
+        "Use these exact sections: (1) Verified facts from sources, citing only supplied numbered references; "
+        "(2) AI-generated hypotheses, clearly marked unvalidated; (3) Competitor landscape and search plan; "
+        "(4) TAM, SAM, SOM: explain each and give a calculation method plus the data needed, with no numeric estimates; "
+        "(5) Potential business models and target-customer hypotheses; (6) Risks and unknowns; "
+        "(7) Practical validation steps.\n"
+        "Verified facts: only make a source claim if the retrieved passage directly supports it. If there are no relevant passages, explicitly say no verified market facts were retrieved. "
+        "Never invent market size, TAM/SAM/SOM values, revenue, growth rates, competitor names or statistics, customer counts, citations, or source URLs. "
+        "When competitor evidence is missing, suggest generic competitor categories and concrete search queries only; label them as research leads, not identified competitors. "
+        "Define TAM as total demand if the full relevant market were served, SAM as the part reachable by this product and geography, and SOM as the part plausibly captured given time and execution capacity. "
+        "Explain a bottom-up method using eligible customer count multiplied by evidenced annual spend, narrowed by serviceable product/geography and then realistic reach. "
+        "List needed inputs: defensible customer counts, pricing or spend evidence, serviceable geography, product eligibility, sales capacity, conversion evidence, and time horizon. "
+        "Do not treat the existing deterministic caveats as market findings. State gaps clearly and use no unsupported numbers.\n\n"
+        f"Founder-provided startup profile (unverified assumptions): {json.dumps(founder_assumptions, ensure_ascii=False)}\n\n"
+        f"Existing deterministic brief and limitations: {json.dumps(brief, ensure_ascii=False)}\n\n"
+        f"Evidence sufficiency: {'retrieved passages exist, but use only directly relevant details' if has_sufficient_evidence(passages) else 'insufficient or no relevant passages; still provide profile-based hypotheses and plainly state that verified market evidence is missing'}"
     )
     try:
         text = _cached_market_answer(
@@ -92,7 +102,16 @@ def generate_market_summary(startup: dict, report: dict) -> dict:
     except Exception:
         # Keep the local research workflow usable if the optional narrative integration fails.
         return {"status": "failed", "text": None, "message": "Sarvam summary unavailable due to an unexpected error. The deterministic brief below is unchanged."}
-    return {"status": "generated", "text": _attach_verified_sources(text, passages), "message": None}
+    evidence_status = (
+        "Retrieved sources are listed below; only directly supported and cited details are verified."
+        if passages else "No relevant verified source passages were retrieved; analysis below consists of hypotheses and validation suggestions."
+    )
+    labelled_text = (
+        f"**Evidence status:** {evidence_status}\n\n"
+        "**AI-generated preliminary analysis — hypotheses, not validated facts**\n\n"
+        f"{text}"
+    )
+    return {"status": "generated", "text": _attach_verified_sources(labelled_text, passages), "message": None}
 
 
 def _attach_verified_sources(text: str, passages: list[dict]) -> str:
@@ -107,10 +126,11 @@ def _attach_verified_sources(text: str, passages: list[dict]) -> str:
     text = markdown_link.sub(lambda match: match.group(0) if match.group(2) in source_urls else match.group(1), text)
     bare_url = re.compile(r"https?://[^\s)\]]+")
     text = bare_url.sub(lambda match: match.group(0) if match.group(0).rstrip(".,;:") in source_urls else "", text)
-    source_list = "\n\n**Retrieved sources**\n" + "\n".join(
+    source_lines = [
         f"- [{index}] [{item['title']}]({item['source_url']})"
         for index, item in enumerate(passages, start=1)
-    )
+    ] or ["- No verified source passages retrieved."]
+    source_list = "\n\n**Verified source references**\n" + "\n".join(source_lines)
     return text.strip() + source_list
 
 

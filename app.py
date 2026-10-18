@@ -285,7 +285,7 @@ with market:
         st.caption("Founder inputs are hypotheses. Market claims below are limited to retrieved sources; no TAM is fabricated.")
         summary = results.get("market_summary", {})
         if summary.get("status") == "generated":
-            st.markdown("#### Sarvam research summary")
+            st.markdown("#### AI-generated preliminary market analysis")
             st.markdown(summary["text"])
         elif summary.get("message"):
             st.info(summary["message"])
