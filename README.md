@@ -1,6 +1,6 @@
 # FounderOS · Carpe deim
 
-Local-first multilingual startup copilot MVP for Indian founders.
+Local-first multilingual startup copilot MVP for Indian founders. Accessibility in mind.
 
 ## Current MVP checklist
 
